@@ -1,0 +1,185 @@
+import os
+import spacy
+import numpy as np
+from dotenv import load_dotenv
+from spotipy.oauth2 import SpotifyOAuth
+from sklearn.neighbors import NearestNeighbors
+from sklearn.metrics.pairwise import cosine_similarity
+from sentence_transformers import SentenceTransformer
+from transformers import pipeline
+
+import requests
+import spotipy
+
+import time
+
+spacy.prefer_gpu()  
+
+load_dotenv()
+SPOTIPY_CLIENT_ID = os.getenv("SPOTIPY_CLIENT_ID")
+SPOTIPY_CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET")
+SPOTIPY_REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI")
+
+LASTFM_API_KEY = os.getenv("LASTFM_API_KEY")
+
+class PlaylistGenerator:
+    def __init__(self):
+        self.emotion_classifier = pipeline("text-classification", model="joeddav/distilbert-base-uncased-go-emotions-student", top_k=1)
+        self.embedder = SentenceTransformer("paraphrase-MiniLM-L6-v2")
+
+    def classify_mood(self, user_prompt):
+        """
+        Uses a pretrained NLP model to classify mood dynamically
+        """
+        emotions = self.emotion_classifier(user_prompt)
+        if emotions:
+            return emotions[0][0]["label"]  # Extract highest confidence emotion label
+        return "neutral"
+
+    def get_user_top_songs(self, sp):
+        """
+        Fetches the user's top 50 tracks from Spotify
+        """
+        results = sp.current_user_top_tracks(limit=50, time_range="medium_term")
+        tracks = []
+
+        for item in results["items"]:
+            track_id = item["id"]
+            track_name = item["name"]
+            artist = item["artists"][0]["name"]
+            tracks.append({"id": track_id, "name": track_name, "artist": artist})
+
+        return tracks
+
+    def get_songs_from_playlist(self, sp, id):
+        """
+        Fetches the top global playlist from Spotify
+        """
+        results = sp.playlist_tracks(id)
+        tracks = []
+        for item in results["items"]:
+            track = item['track']
+            tracks.append({
+                "id": track["id"],
+                "name": track["name"],
+                "artist": track["artists"][0]["name"],
+                "image": sp.track(track["id"])["album"]["images"][0]["url"]
+            })
+        return tracks
+
+    def get_song_info(self, song_name, artist_name):
+        """
+        Fetches metadata (tags, moods, etc.) for a given song from Last.fm
+        """
+        url = f"http://ws.audioscrobbler.com/2.0/"
+        params = {
+            "method": "track.getInfo",
+            "api_key": LASTFM_API_KEY,
+            "artist": artist_name,
+            "track": song_name,
+            "format": "json"
+        }
+
+        response = requests.get(url, params=params)
+        data = response.json()
+
+        if "track" in data:
+            tags = [tag["name"] for tag in data["track"]["toptags"]["tag"]]
+            return {"song": song_name, "artist": artist_name, "tags": tags}
+        return None
+
+    def get_embedding(self, prompt):
+        """
+        Embeds piece of text into latent space
+        """
+        return self.embedder.encode(prompt)
+
+    def create_playlist(self, sp, mood, recommended_tracks):
+        """
+        Creates a Spotify playlist and adds the recommended tracks
+        """
+        playlist = sp.user_playlist_create(user=sp.current_user()["id"], name=mood, public=True)
+        track_uris = [f"spotify:track:{track}" for track in recommended_tracks]
+        sp.playlist_add_items(playlist_id=playlist["id"], items=track_uris)
+        return playlist["external_urls"]["spotify"]
+
+    def generate_playlist(self, sp, token, user_prompt, username):
+        """
+        Main function to generate a Spotify playlist based on user mood dynamically
+        """
+        try:
+            start = time.time()
+
+            # Uses NLP to classify user's mood and embed
+            mood = self.classify_mood(user_prompt)  # TODO: find a better NLP thats more descriptive
+            if not mood:
+                raise ValueError("NLP model unable to classify mood.")
+            embedded_mood = self.get_embedding(mood)
+            
+            print(f"Detected Mood: {mood}")
+            a = time.time()
+            print(f"time taken to get mood: {a - start}")
+
+            # Get user and global top tracks to embed
+            embedded_user_tracks = {}
+            user_top_tracks = self.get_user_top_songs(sp)
+            if not user_top_tracks:
+                raise ValueError("No top tracks found for user.")
+            for track in user_top_tracks:
+                song_info = self.get_song_info(track['name'], track['artist'])
+                embedded_user_tracks[track['id']] = self.get_embedding(' '.join(song_info['tags']))
+
+            b = time.time()
+            print(f"time taken to get embedded_user_info: {b - a}")
+
+            embedded_global_tracks = {}
+            global_top_tracks = self.get_songs_from_playlist(sp, "1RDk6T6DZNnYvBaBZQ3eWh")  # TODO: function only returns 100 songs for some reason
+            if not global_top_tracks:
+                raise ValueError("No top tracks playlist found.")
+            for track in global_top_tracks:
+                song_info = self.get_song_info(track['name'], track['artist'])  # TODO: get_song_info kinda slow
+                embedded_global_tracks[track['id']] = self.get_embedding(' '.join(song_info['tags']))  # TODO: Probably need to find a better way to embed the songs aside from using the 'tags'
+            
+            c = time.time()
+            print(f"time taken to get embedded_global_info: {c - b}")
+
+            # Using user's top tracks to create personalised weights by computing average embedding
+            user_top_embeddings = np.array([embedded_global_tracks[track] for track in embedded_user_tracks if track in embedded_global_tracks])
+            user_profile_embedding = np.mean(user_top_embeddings, axis=0) if user_top_embeddings.size != 0 else np.zeros((list(embedded_global_tracks.values())[0].shape[0],))
+
+            d = time.time()
+            print(f"time taken to get user_profile_embedding: {d - c}")
+
+            # Embed global top tracks into latent space to do (cosine) similarity search using user's prompt
+            knn = NearestNeighbors(n_neighbors=50, metric="cosine")
+            knn.fit(np.array(list(embedded_global_tracks.values())))
+            distances, indices = knn.kneighbors([embedded_mood])
+            indices = [int(idx) for _, idx in sorted(zip(distances[0], indices[0]))]
+            closest_global_songs = {list(embedded_global_tracks.items())[idx][0]:list(embedded_global_tracks.items())[idx][1] for idx in indices}
+            
+            e = time.time()
+            print(f"time taken to get closest global songs to mood: {e - d}")
+
+            # Similarity search on sorted global stop tracks with user's top songs
+            similarities = cosine_similarity(np.array(list(closest_global_songs.values())), user_profile_embedding.reshape(1, -1))
+            sorted_indices = np.argsort(similarities[:, 0])[::-1]  # Sort by highest similarity
+            recommended_songs = [list(closest_global_songs.keys())[i] for i in sorted_indices]  # Get song IDs
+            if not recommended_songs:
+                raise ValueError("No suitable songs found for this mood.")
+
+            f = time.time()
+            print(f"time taken to get closest sorted global songs to user's top tracks: {f - e}")
+
+            # Create a Spotify playlist with the recommended songs
+            playlist_url = self.create_playlist(sp, user_prompt, recommended_songs)  # TODO: Playlist is currently created and saved under user's actual account
+            new_playlist_tracks = self.get_songs_from_playlist(sp, playlist_url.split('/')[-1])
+            playlist_name = None  # TODO: maybe use some LLM to create name 
+
+            g = time.time()
+            print(f"time taken to get spotify playlist: {g - f}")
+
+            return {"success":True, "playlist_url":playlist_url, "playlist_name":playlist_name, "playlist_tracks":new_playlist_tracks}
+
+        except Exception as e:
+            print(e)
+            return {"success": False, "message": str(e)}

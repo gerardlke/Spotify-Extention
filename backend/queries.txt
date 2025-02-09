@@ -1,0 +1,34 @@
+CREATE TABLE Users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE Spotify_tokens (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES Users(id) ON DELETE CASCADE,
+    access_token TEXT NOT NULL,
+    refresh_token TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL
+);
+CREATE TABLE Playlists (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES Users(id) ON DELETE CASCADE,
+    prompt VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE Songs (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    artist VARCHAR(255) NOT NULL,
+    spotify_url VARCHAR(255) NOT NULL
+);
+CREATE TABLE Playlists_to_Songs (
+    id SERIAL PRIMARY KEY,
+    playlist_id INT NOT NULL REFERENCES Playlists(id) ON DELETE CASCADE,
+    song_id INT NOT NULL REFERENCES Songs(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_spotify_tokens_user_id ON Spotify_tokens(user_id);
