@@ -87,8 +87,32 @@ class QueryManager(Database):
         """
         return self.execute_query(update_query, (access_token, expires_at, user_id))
 
-    def save_playlist(self):
+    def save_playlist(self, playlist, prompt, username):
+        user_query = "SELECT id FROM Users WHERE username = %s"
+        user_result = self.execute_query(user_query, (username,))
+        if not user_result:
+            print(f"User {username} not found.")
+            return
+        user_id = user_result[0]["id"]
+
         query = """
+        INSERT INTO Playlists (user_id, prompt, name)
+        VALUES (%s, %s, %s)
+        RETURNING Playlists.id
         """
-        return self.execute_query(query, ())
+        playlist_id = self.execute_query(query, (user_id, prompt, playlist['playlist_name']))
+
+        query = """
+        INSERT INTO Songs (name, artist)
+        VALUES (%s, %s)
+        RETURNING Songs.id
+        """
+        song_id = self.execute_query(query, (name, artist))
+
+        query = """
+        INSERT INTO Playlists_to_Songs (playlist_id, song_id)
+        VALUES (%s, %s)
+        RETURNING Songs.id
+        """
+        return self.execute_query(query, (playlist_id, song_id))
     

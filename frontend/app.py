@@ -134,7 +134,6 @@ class APIManager:
         try:
             response = requests.post(self.BACKEND_ENDPOINT + "/createPlaylist", json=data)
             response_data = response.json()
-            print(456, response_data)
         
             if response.status_code == 200:  
                 return response_data

@@ -108,8 +108,6 @@ class PlaylistGenerator:
         Main function to generate a Spotify playlist based on user mood dynamically
         """
         try:
-            start = time.time()
-
             # Uses NLP to classify user's mood and embed
             mood = self.classify_mood(user_prompt)  # TODO: find a better NLP thats more descriptive
             if not mood:
@@ -117,8 +115,6 @@ class PlaylistGenerator:
             embedded_mood = self.get_embedding(mood)
             
             print(f"Detected Mood: {mood}")
-            a = time.time()
-            print(f"time taken to get mood: {a - start}")
 
             # Get user and global top tracks to embed
             embedded_user_tracks = {}
@@ -129,9 +125,6 @@ class PlaylistGenerator:
                 song_info = self.get_song_info(track['name'], track['artist'])
                 embedded_user_tracks[track['id']] = self.get_embedding(' '.join(song_info['tags']))
 
-            b = time.time()
-            print(f"time taken to get embedded_user_info: {b - a}")
-
             embedded_global_tracks = {}
             global_top_tracks = self.get_songs_from_playlist(sp, "1RDk6T6DZNnYvBaBZQ3eWh")  # TODO: function only returns 100 songs for some reason
             if not global_top_tracks:
@@ -139,16 +132,10 @@ class PlaylistGenerator:
             for track in global_top_tracks:
                 song_info = self.get_song_info(track['name'], track['artist'])  # TODO: get_song_info kinda slow
                 embedded_global_tracks[track['id']] = self.get_embedding(' '.join(song_info['tags']))  # TODO: Probably need to find a better way to embed the songs aside from using the 'tags'
-            
-            c = time.time()
-            print(f"time taken to get embedded_global_info: {c - b}")
 
             # Using user's top tracks to create personalised weights by computing average embedding
             user_top_embeddings = np.array([embedded_global_tracks[track] for track in embedded_user_tracks if track in embedded_global_tracks])
             user_profile_embedding = np.mean(user_top_embeddings, axis=0) if user_top_embeddings.size != 0 else np.zeros((list(embedded_global_tracks.values())[0].shape[0],))
-
-            d = time.time()
-            print(f"time taken to get user_profile_embedding: {d - c}")
 
             # Embed global top tracks into latent space to do (cosine) similarity search using user's prompt
             knn = NearestNeighbors(n_neighbors=50, metric="cosine")
@@ -156,9 +143,6 @@ class PlaylistGenerator:
             distances, indices = knn.kneighbors([embedded_mood])
             indices = [int(idx) for _, idx in sorted(zip(distances[0], indices[0]))]
             closest_global_songs = {list(embedded_global_tracks.items())[idx][0]:list(embedded_global_tracks.items())[idx][1] for idx in indices}
-            
-            e = time.time()
-            print(f"time taken to get closest global songs to mood: {e - d}")
 
             # Similarity search on sorted global stop tracks with user's top songs
             similarities = cosine_similarity(np.array(list(closest_global_songs.values())), user_profile_embedding.reshape(1, -1))
@@ -167,16 +151,10 @@ class PlaylistGenerator:
             if not recommended_songs:
                 raise ValueError("No suitable songs found for this mood.")
 
-            f = time.time()
-            print(f"time taken to get closest sorted global songs to user's top tracks: {f - e}")
-
             # Create a Spotify playlist with the recommended songs
             playlist_url = self.create_playlist(sp, user_prompt, recommended_songs)  # TODO: Playlist is currently created and saved under user's actual account
             new_playlist_tracks = self.get_songs_from_playlist(sp, playlist_url.split('/')[-1])
             playlist_name = None  # TODO: maybe use some LLM to create name 
-
-            g = time.time()
-            print(f"time taken to get spotify playlist: {g - f}")
 
             return {"success":True, "playlist_url":playlist_url, "playlist_name":playlist_name, "playlist_tracks":new_playlist_tracks}
 

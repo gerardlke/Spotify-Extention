@@ -234,22 +234,25 @@ def create_playlist(request: createPlaylistRequest):
     if validate_mood(request.prompt):
         res = generator.generate_playlist(Spotify(auth_manager=auth_manager), request.access_token, request.prompt, request.username)
         if res['success']:
-            db.save_playlist(res)
-            return {
-                "success": True, 
-                "playlist": {
-                    "mood": request.prompt,
-                    "playlist_url": res['playlist_url'],
-                    "playlist_name": res['playlist_name'],
-                    "songs": [
-                        {
-                            'name':track['name'],
-                            'artist':track['artist'],
-                            'image':track['image']
-                        } for track in res['playlist_tracks']
-                    ]
+            try:
+                db.save_playlist(res, request.prompt, request.username)
+                return {
+                    "success": True, 
+                    "playlist": {
+                        "mood": request.prompt,
+                        "playlist_url": res['playlist_url'],
+                        "playlist_name": res['playlist_name'],
+                        "songs": [
+                            {
+                                'name':track['name'],
+                                'artist':track['artist'],
+                                'image':track['image']
+                            } for track in res['playlist_tracks']
+                        ]
+                    }
                 }
-            }
+            except Exception as e:
+                return {'success':False, 'message':f'Failure saving playlist to database: {e}'}
         return res
     return {'success':False, 'message':'Invalid mood input.'}
 

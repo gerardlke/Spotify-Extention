@@ -1,7 +1,88 @@
-# Spotify Extention Project
+# **🎵 Spotify Song Recommendation Extension**  
+A personalized song recommendation system that **analyzes your listening history, mood, and global song trends** to generate custom playlists.
 
-This is my attempt at creating a spotify extention. Please advice accordingly.
+This is a **personal project** where I explore **AI-driven music recommendations** using **Spotify API, FastAPI, and Streamlit** while improving my understanding of **machine learning, embeddings, and backend development**.
 
-## Project Description
+---
 
-The product is designed to 
+## **📌 Available Versions**
+| Version | Description |
+|---------|------------|
+| **v1.0** | MVP: UI using Streamlit, SentenceTransformer NLP | 
+
+---
+
+## **🚀 Features**
+- 🎧 **Personalized Music Discovery** – Get recommendations based on your listening habits and mood prompts.  
+- 📊 **Latent Space Embeddings** – Maps user input and songs into a shared space for similarity-based recommendations.  
+- 🔍 **KNN Similarity Search** – Finds songs that match the user’s mood and listening history.  
+- 🌍 **Global Song Trends** – Integrates **Spotify's global top charts** for diverse recommendations.  
+- 🔗 **Spotify Integration** – View recommendations in the UI or **save them as a Spotify playlist**.  
+
+---
+
+## **🛠️ Tech Stack**
+| Component        | Technology Used |
+|-----------------|----------------|
+| **Frontend**    | Streamlit |
+| **Backend API** | FastAPI |
+| **Spotify Data** | Spotipy API |
+| **Additional Song Data** | Last.fm API |
+| **ML Embeddings** | Latent Space Representation |
+| **Similarity Search** | K-Nearest Neighbors (KNN) |
+
+---
+
+## **⚙️ How It Works**
+1. **User Authentication** – Users log in via **Spotify OAuth**.  
+2. **Data Collection**  
+   - Fetches **top listened songs** from Spotify.  
+   - Retrieves **global top songs** via Spotify API.  
+   - Collects **additional metadata** via Last.fm API.  
+3. **Embedding & Similarity Matching**  
+   - User's prompt & songs are **embedded into a latent space**.  
+   - The system **adjusts weights** based on the user’s **top songs**.  
+   - Uses **K-Nearest Neighbors (KNN)** to find songs with **similar mood and characteristics**.  
+4. **Playlist Creation & Display**  
+   - Recommended songs are displayed in the **Streamlit UI**.  
+   - Users can **save the playlist to their Spotify account**.  
+
+---
+
+## **💡 Work Done & Future Improvements**
+### **🛠️ Skills Used**
+- **Frontend Development** – Using **Streamlit** to create an interactive UI.  
+- **Backend Development** – Using **FastAPI** to handle API requests and data processing.  
+- **Machine Learning** – Implementing **vector embeddings and KNN** for recommendation systems.  
+- **Spotify API Integration** – Understanding **OAuth authentication, user data retrieval, and playlist management**.  
+
+### **🔮 Next Steps**
+- **Improved NLP** – Improve latent representation of user's descriptive prompts.
+- **Genre-Based Filtering** – Improve recommendations based on song metadata.  
+- **Deep Learning for Embeddings** – Use models like **Word2Vec or Sentence Transformers** for better similarity matching.  
+- **Real-time Audio Analysis** – Implement features for **analyzing lyrics or song audio**.  
+
+---
+
+## **📌 Setup & Installation**
+### **1️⃣ Clone the repository**
+```bash
+git clone https://github.com/gerardlke/spotify-extension.git
+cd spotify-extension
+```
+
+### **2️⃣ Install Dependencies**
+```bash
+pip install -r backend/requirements.txt
+pip install -r frontend/requirements.txt
+```
+
+### **3️⃣ Set up Spotify API Credentials**
+- Create a **Spotify Developer App** at https://developer.spotify.com/dashboard.
+- Obtain **Client ID & Secret**.  
+- Set up **redirect URI** for authentication.
+- Edit **.env** file with new client ID & Secret.
+
+### **4️⃣ Run the Application**
+- Run **backend.bat** & **frontend.bat**.
+- Wait for backend script to start up.
