@@ -2,6 +2,7 @@ import psycopg2
 from psycopg2 import sql
 from psycopg2.extras import DictCursor
 
+import requests
 from dotenv import load_dotenv
 import os
 
@@ -27,13 +28,26 @@ class Database:
         with self.conn.cursor(cursor_factory=DictCursor) as cursor:
             try:
                 cursor.execute(query, params)
-                if query.strip().lower().startswith("select"):
+                if query.strip().lower().startswith("select") or "returning" in query.strip().lower():
                     return cursor.fetchall()
                 return True
             except Exception as e:
-                print(f"Database error: {e}")
+                print(f"Database error while completing '{query.strip()}': {e}")
                 return None
-
+            
+    def execute_batch_insertion(self, query, data):
+        with self.conn.cursor() as cursor:
+            try:
+                psycopg2.extras.execute_values(cursor, query, data)
+                if 'returning' in query.strip().lower():
+                    return cursor.fetchall()
+                
+                self.conn.commit()
+                return True
+            except Exception as e:
+                print(f"Database error while completing '{query.strip()}': {e}")
+                return None
+        
 class QueryManager(Database):
     def create_user(self, username, password_hash):
         query = """
@@ -86,7 +100,7 @@ class QueryManager(Database):
         WHERE user_id = %s
         """
         return self.execute_query(update_query, (access_token, expires_at, user_id))
-
+    
     def save_playlist(self, playlist, prompt, username):
         user_query = "SELECT id FROM Users WHERE username = %s"
         user_result = self.execute_query(user_query, (username,))
@@ -94,25 +108,48 @@ class QueryManager(Database):
             print(f"User {username} not found.")
             return
         user_id = user_result[0]["id"]
+        
+        query = """
+        INSERT INTO Playlists (user_id, prompt, name, url)
+        VALUES (%s, %s, %s, %s)
+        RETURNING id
+        """
+        playlist_id = self.execute_query(query, (user_id, prompt, playlist['playlist_name'], playlist['playlist_url']))[0][0]
+
+        songs_data = [(track['name'], track['artist'], track['image']) for track in playlist['playlist_tracks']]
+        print(0)
 
         query = """
-        INSERT INTO Playlists (user_id, prompt, name)
-        VALUES (%s, %s, %s)
-        RETURNING Playlists.id
+        SELECT id FROM Songs WHERE (name, artist, image) IN %s;
         """
-        playlist_id = self.execute_query(query, (user_id, prompt, playlist['playlist_name']))
+        existing_song_ids = self.execute_query(query, (tuple(songs_data),))
+        print(1, existing_song_ids)
 
         query = """
-        INSERT INTO Songs (name, artist)
-        VALUES (%s, %s)
-        RETURNING Songs.id
+        INSERT INTO Songs (name, artist, image) 
+        VALUES %s
+        ON CONFLICT (name, artist) DO NOTHING
+        RETURNING id;
         """
-        song_id = self.execute_query(query, (name, artist))
-
+        new_song_ids = self.execute_batch_insertion(query, songs_data)
+        print(2, new_song_ids)
+        
+        playlist_songs_data = [(playlist_id, song_id[0]) for song_id in existing_song_ids + new_song_ids]
         query = """
         INSERT INTO Playlists_to_Songs (playlist_id, song_id)
-        VALUES (%s, %s)
-        RETURNING Songs.id
+        VALUES (%s)
         """
-        return self.execute_query(query, (playlist_id, song_id))
+        print(3, playlist_songs_data)
+        return self.execute_batch_insertion(query, (tuple(playlist_songs_data),))
     
+    def retrieve_playlists(self, username):
+        query = """ 
+        SELECT Playlists.prompt, Playlists.name, Playlists.created_at, Playlists.url
+        FROM Users 
+        JOIN Playlists ON Users.id = Playlists.user_id
+        JOIN Playlists_to_Songs ON Playlists_to_Songs.playlist_id = Playlists.id
+        JOIN Songs ON Playlists_to_Songs.song_id = Songs.id
+        WHERE Users.username = %s
+        """
+        result = self.execute_query(query, (username,))
+        return result[0] if result else None

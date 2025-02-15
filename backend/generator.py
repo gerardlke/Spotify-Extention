@@ -154,7 +154,7 @@ class PlaylistGenerator:
             # Create a Spotify playlist with the recommended songs
             playlist_url = self.create_playlist(sp, user_prompt, recommended_songs)  # TODO: Playlist is currently created and saved under user's actual account
             new_playlist_tracks = self.get_songs_from_playlist(sp, playlist_url.split('/')[-1])
-            playlist_name = None  # TODO: maybe use some LLM to create name 
+            playlist_name = 'test'  # TODO: maybe use some LLM to create name 
 
             return {"success":True, "playlist_url":playlist_url, "playlist_name":playlist_name, "playlist_tracks":new_playlist_tracks}
 
