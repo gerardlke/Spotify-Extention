@@ -148,32 +148,29 @@ class APIManager:
         except requests.exceptions.RequestException as e:  # Handle connection errors or timeouts
             return {"success": False, "message": f"Failed to connect to the server: {str(e)}"}
 
-    def retrieve_playlists(self, username):
+    def retrieve_playlists(self):
         """
         Function:   Retrieves previously created playlists by user based on different moods
         Input:      username:str
         Output:     
         """
-        return [
-            {
-                "mood": "Relaxed",
-                "playlist_name": "Chill Vibes",
-                "playlist_image": "https://i.scdn.co/image/ab67616d00001e0206a9b8e06598b5e580a3a05a",
-                "songs": [
-                    {"name": "Song 1", "artist": "Artist A"},
-                    {"name": "Song 2", "artist": "Artist B"},
-                ],
-            },
-            {
-                "mood": "Energized",
-                "playlist_name": "Pump Up Mix",
-                "playlist_image": "https://i.scdn.co/image/ab67616d00001e02a045a9eb6e4996be016b2345", 
-                "songs": [
-                    {"name": "Song 3", "artist": "Artist C"},
-                    {"name": "Song 4", "artist": "Artist D"},
-                ],
-            },
-        ]
+        data = {"username": st.session_state.username}
+        try:
+            response = requests.post(self.BACKEND_ENDPOINT + "/retrievePlaylists", json=data)
+            response_data = response.json()
+        
+            if response.status_code == 200:  
+                return response_data
+            elif response.status_code == 500:
+                backend_detail = response_data.get("detail", "Server error.")
+                return {"success": False, "message": f"Server error: {backend_detail}"}
+            else:
+                backend_detail = response_data.get("detail", "Server error.")
+                return {"success": False, "message": f"Unexpected error occurred: {backend_detail}"}
+        except requests.exceptions.Timeout:  # Handle timeout explicitly
+            return {"success": False, "message": "The spotify authentication request timed out. Please try again later."}
+        except requests.exceptions.RequestException as e:  # Handle connection errors or timeouts
+            return {"success": False, "message": f"Failed to connect to the server: {str(e)}"}
 
 class StreamlitApp(APIManager):
     def __init__(self):
@@ -228,7 +225,6 @@ class StreamlitApp(APIManager):
                         if res['success']:
                             st.session_state.logged_in = True
                             if res['redirect_url']:
-                                print(res['redirect_url'])
                                 st_javascript(f'window.location.href="{res['redirect_url']}";')  # Redirect user
                             else:
                                 st.error("Invalid redirect URL from backend.")
@@ -278,7 +274,6 @@ class StreamlitApp(APIManager):
                 st.success(f"Generating a playlist based on you feeling... {mood}")
                 
                 res = self.create_playlist(mood, st.session_state.username)
-                print(res)
                 if res['success']:
 
                     st.write("### Here are some tunes you might like;")
@@ -302,25 +297,34 @@ class StreamlitApp(APIManager):
         """
         st.title("History")
         st.text("Your previously generated playlists will appear here.")
-        data = self.retrieve_playlists(st.session_state.user_credentials['username'])
-        for item in data:
-            with st.container():
-                
-                col1, col2 = st.columns([1, 3])  # Playlist Image and Prompt (Left and Right Layout)
-                with col1:
-                    st.image(item["playlist_image"], width=100)  # Playlist image
+        data = self.retrieve_playlists()
+        if not data['success']:
+            st.error(f'Error retrieving playlist history: {data['message']}')
+        else:
+            for playlist in data['playlists']:
+                print(playlist)
+                with st.container():
+                    
+                    col1, col2 = st.columns([1, 3])  # Playlist Image and Prompt (Left and Right Layout)
+                    with col1:
+                        st.image(playlist["playlist_image"], width=100)  # Playlist image
 
-                with col2:
-                    st.subheader(item["playlist_name"])
-                    st.write(f"**Mood Prompt:** {item['mood']}")
+                    with col2:
+                        st.write(f'## {playlist["playlist_name"]}')
+                        st.write(f'#### {playlist["playlist_url"]}')
+                        st.write(f'#### **You were feeling a lil...** {playlist['mood']}')
 
-                    with st.expander("View Songs"):  # Dropdown for songs
-                        for song in item["songs"]:
-                            st.write(f"- {song['name']} by {song['artist']}")
+                        with st.expander("View Songs"):  # Dropdown for songs
+                            for song in playlist["songs"]:
+                                with st.container():
+                                    col1, col2 = st.columns([1, 3])
+                                    with col1:
+                                        st.image(song["image"], width=100)
+                                    with col2:
+                                        st.subheader(song["name"])
+                                        st.write(f"**Artist:** {song['artist']}")
+                st.write(f'---')
 
-                    export_button_label = f"Export {item['playlist_name']} Playlist"  # Export Button
-                    if st.button(export_button_label):
-                        st.success(f"Exporting {item['playlist_name']}...")  # Replace with real export logic
         st.markdown("""
             <style>
                 .stContainer {

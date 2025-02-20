@@ -147,7 +147,7 @@ class PlaylistGenerator:
             # Similarity search on sorted global stop tracks with user's top songs
             similarities = cosine_similarity(np.array(list(closest_global_songs.values())), user_profile_embedding.reshape(1, -1))
             sorted_indices = np.argsort(similarities[:, 0])[::-1]  # Sort by highest similarity
-            recommended_songs = [list(closest_global_songs.keys())[i] for i in sorted_indices]  # Get song IDs
+            recommended_songs = [list(closest_global_songs.keys())[i] for i in sorted_indices[:25]]  # Get song IDs
             if not recommended_songs:
                 raise ValueError("No suitable songs found for this mood.")
 

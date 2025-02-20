@@ -117,13 +117,11 @@ class QueryManager(Database):
         playlist_id = self.execute_query(query, (user_id, prompt, playlist['playlist_name'], playlist['playlist_url']))[0][0]
 
         songs_data = [(track['name'], track['artist'], track['image']) for track in playlist['playlist_tracks']]
-        print(0)
 
         query = """
         SELECT id FROM Songs WHERE (name, artist, image) IN %s;
         """
         existing_song_ids = self.execute_query(query, (tuple(songs_data),))
-        print(1, existing_song_ids)
 
         query = """
         INSERT INTO Songs (name, artist, image) 
@@ -132,24 +130,22 @@ class QueryManager(Database):
         RETURNING id;
         """
         new_song_ids = self.execute_batch_insertion(query, songs_data)
-        print(2, new_song_ids)
         
         playlist_songs_data = [(playlist_id, song_id[0]) for song_id in existing_song_ids + new_song_ids]
         query = """
         INSERT INTO Playlists_to_Songs (playlist_id, song_id)
-        VALUES (%s)
+        VALUES %s
         """
-        print(3, playlist_songs_data)
-        return self.execute_batch_insertion(query, (tuple(playlist_songs_data),))
+        return self.execute_batch_insertion(query, playlist_songs_data)
     
     def retrieve_playlists(self, username):
         query = """ 
-        SELECT Playlists.prompt, Playlists.name, Playlists.created_at, Playlists.url
+        SELECT Playlists.prompt, Playlists.name, Playlists.created_at, Playlists.url, ARRAY_AGG(ROW(Songs.name, Songs.artist, Songs.image))
         FROM Users 
         JOIN Playlists ON Users.id = Playlists.user_id
         JOIN Playlists_to_Songs ON Playlists_to_Songs.playlist_id = Playlists.id
         JOIN Songs ON Playlists_to_Songs.song_id = Songs.id
         WHERE Users.username = %s
+        GROUP BY Playlists.id
         """
-        result = self.execute_query(query, (username,))
-        return result[0] if result else None
+        return self.execute_query(query, (username,))
