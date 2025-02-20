@@ -10,7 +10,6 @@ This is a **personal project** where I explore **AI-driven music recommendations
 |---------|------------|
 | **v1.0** | MVP: UI using Streamlit, SentenceTransformer NLP | 
 
----
 
 ## **🚀 Features**
 - 🎧 **Personalized Music Discovery** – Get recommendations based on your listening habits and mood prompts.  
@@ -19,7 +18,6 @@ This is a **personal project** where I explore **AI-driven music recommendations
 - 🌍 **Global Song Trends** – Integrates **Spotify's global top charts** for diverse recommendations.  
 - 🔗 **Spotify Integration** – View recommendations in the UI or **save them as a Spotify playlist**.  
 
----
 
 ## **🛠️ Tech Stack**
 | Component        | Technology Used |
@@ -31,7 +29,7 @@ This is a **personal project** where I explore **AI-driven music recommendations
 | **ML Embeddings** | Latent Space Representation |
 | **Similarity Search** | K-Nearest Neighbors (KNN) |
 
----
+
 
 ## **⚙️ How It Works**
 1. **User Authentication** – Users log in via **Spotify OAuth**.  
@@ -47,7 +45,21 @@ This is a **personal project** where I explore **AI-driven music recommendations
    - Recommended songs are displayed in the **Streamlit UI**.  
    - Users can **save the playlist to their Spotify account**.  
 
----
+
+## 💬 Showcase
+
+### Log in / Sign up 
+
+<img src="static/Login.png" alt="login" width="600">
+<img src="static/Signup.png" alt="signup" width="600">
+
+### Playlist Generator
+
+<img src="static/Generator.png" alt="generator" width="600">
+
+### Playlist History
+
+<img src="static/History.png" alt="history" width="600">
 
 ## **💡 Work Done & Future Improvements**
 ### **🛠️ Skills Used**
@@ -62,7 +74,6 @@ This is a **personal project** where I explore **AI-driven music recommendations
 - **Deep Learning for Embeddings** – Use models like **Word2Vec or Sentence Transformers** for better similarity matching.  
 - **Real-time Audio Analysis** – Implement features for **analyzing lyrics or song audio**.  
 
----
 
 ## **📌 Setup & Installation**
 ### **1️⃣ Clone the repository**
