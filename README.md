@@ -1,14 +1,14 @@
 # **🎵 Spotify Song Recommendation Extension**  
 A personalized song recommendation system that **analyzes your listening history, mood, and global song trends** to generate custom playlists.
 
-This is a **personal project** where I explore **AI-driven music recommendations** using **Spotify API, FastAPI, and Streamlit** while improving my understanding of **machine learning, embeddings, and backend development**.
+This is a simple personal project where I explore **AI-driven music recommendations** using **Spotify API, FastAPI, and Streamlit** to attempt to improve my understanding of **machine learning, embeddings, and backend development**.
 
 ---
 
 ## **📌 Available Versions**
 | Version | Description |
 |---------|------------|
-| **v1.0** | MVP: UI using Streamlit, SentenceTransformer NLP | 
+| **v1.0** | MVP: Streamlit UI, SentenceTransformer NLP | 
 
 
 ## **🚀 Features**
@@ -24,6 +24,7 @@ This is a **personal project** where I explore **AI-driven music recommendations
 |-----------------|----------------|
 | **Frontend**    | Streamlit |
 | **Backend API** | FastAPI |
+| **Database** | PostgreSQL |
 | **Spotify Data** | Spotipy API |
 | **Additional Song Data** | Last.fm API |
 | **ML Embeddings** | Latent Space Representation |
@@ -32,21 +33,25 @@ This is a **personal project** where I explore **AI-driven music recommendations
 
 
 ## **⚙️ How It Works**
-1. **User Authentication** – Users log in via **Spotify OAuth**.  
-2. **Data Collection**  
-   - Fetches **top listened songs** from Spotify.  
-   - Retrieves **global top songs** via Spotify API.  
-   - Collects **additional metadata** via Last.fm API.  
+1. **User Authentication** 
+   - User logs in to web application.
+   - User is prompted to connect their spotify account via **Spotify OAuth** and spotify tokens are saved to DB.
+   - The spotify **token is refreshed** whenever necessary to make Spotify API calls.
+2. **Data Collection**
+   - Fetches **top listened songs** from Spotify.
+   - Retrieves **global top songs** via Spotify API.
+   - Collects **additional metadata** via Last.fm API.
 3. **Embedding & Similarity Matching**  
    - User's prompt & songs are **embedded into a latent space**.  
-   - The system **adjusts weights** based on the user’s **top songs**.  
+   - The system **adjusts weights** based on the user's **top songs**.  
    - Uses **K-Nearest Neighbors (KNN)** to find songs with **similar mood and characteristics**.  
-4. **Playlist Creation & Display**  
-   - Recommended songs are displayed in the **Streamlit UI**.  
-   - Users can **save the playlist to their Spotify account**.  
+4. **Playlist Creation & Display**
+   - Recommended songs are displayed in the **Streamlit UI**.
+   - Playlists are **automatically saved** to the user's Spotify accounts.
+   - **Previously created playlists** can be view and linked through History.
 
 
-## 💬 Showcase
+## 💬 UI Showcase
 
 ### Log in / Sign up 
 
@@ -88,12 +93,16 @@ pip install -r backend/requirements.txt
 pip install -r frontend/requirements.txt
 ```
 
-### **3️⃣ Set up Spotify API Credentials**
+### **3️⃣ Set up Database**
+- Install PostgreSQL.
+- Run and instance and update the .env with the Database details.
+
+### **4️⃣ Set up Spotify API Credentials**
 - Create a **Spotify Developer App** at https://developer.spotify.com/dashboard.
 - Obtain **Client ID & Secret**.  
 - Set up **redirect URI** for authentication.
 - Edit **.env** file with new client ID & Secret.
 
-### **4️⃣ Run the Application**
+### **5️⃣ Run the Application**
 - Run **backend.bat** & **frontend.bat**.
 - Wait for backend script to start up.
