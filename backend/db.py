@@ -8,13 +8,6 @@ import os
 
 class Database:
     def __init__(self):
-        # self.conn = psycopg2.connect(
-        #     database=os.getenv("DATABASE_NAME"),
-        #     user=os.getenv("DATABASE_USER"),
-        #     password=os.getenv("DATABASE_PASSWORD"),
-        #     host=os.getenv("DATABASE_HOST"),
-        #     port=os.getenv("DATABASE_PORT"),
-        # )
         self.conn = psycopg2.connect(
             database="Spotify-extention",
             user="postgres",

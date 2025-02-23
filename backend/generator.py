@@ -9,9 +9,6 @@ from sentence_transformers import SentenceTransformer
 from transformers import pipeline
 
 import requests
-import spotipy
-
-import time
 
 spacy.prefer_gpu()  
 
@@ -24,17 +21,18 @@ LASTFM_API_KEY = os.getenv("LASTFM_API_KEY")
 
 class PlaylistGenerator:
     def __init__(self):
-        self.emotion_classifier = pipeline("text-classification", model="joeddav/distilbert-base-uncased-go-emotions-student", top_k=1)
+        self.generator = pipeline("text2text-generation", model="google/flan-t5-base")
         self.embedder = SentenceTransformer("paraphrase-MiniLM-L6-v2")
 
-    def classify_mood(self, user_prompt):
+    def classify_prompt(self, user_prompt):
         """
-        Uses a pretrained NLP model to classify mood dynamically
+        Uses a pretrained LLM model to classify what the user needs more dynamically
         """
-        emotions = self.emotion_classifier(user_prompt)
-        if emotions:
-            return emotions[0][0]["label"]  # Extract highest confidence emotion label
-        return "neutral"
+        prompt = (f"My user is feeling {user_prompt}. Describe the type of songs my user needs based on their prompt.")
+        result = self.generator(prompt, max_length=150, do_sample=False)
+        if result:
+            return result[0]["generated_text"]
+        return user_prompt
 
     def get_user_top_songs(self, sp):
         """
@@ -51,13 +49,19 @@ class PlaylistGenerator:
 
         return tracks
 
-    def get_songs_from_playlist(self, sp, id):
+    def get_songs_from_playlist(self, sp, id, limit=50):
         """
         Fetches the top global playlist from Spotify
         """
         results = sp.playlist_tracks(id)
+        items = results['items']
+        
+        while results["next"] and len(items) < limit:
+            results = sp.next(results)
+            items.extend(results["items"])
+
         tracks = []
-        for item in results["items"]:
+        for item in items:
             track = item['track']
             tracks.append({
                 "id": track["id"],
@@ -82,7 +86,6 @@ class PlaylistGenerator:
 
         response = requests.get(url, params=params)
         data = response.json()
-
         if "track" in data:
             tags = [tag["name"] for tag in data["track"]["toptags"]["tag"]]
             return {"song": song_name, "artist": artist_name, "tags": tags}
@@ -109,12 +112,9 @@ class PlaylistGenerator:
         """
         try:
             # Uses NLP to classify user's mood and embed
-            mood = self.classify_mood(user_prompt)  # TODO: find a better NLP thats more descriptive
-            if not mood:
-                raise ValueError("NLP model unable to classify mood.")
-            embedded_mood = self.get_embedding(mood)
-            
-            print(f"Detected Mood: {mood}")
+            generated_text = self.classify_prompt(user_prompt)
+            print(f"Song requirements: {generated_text}")
+            embedded_prompt = self.get_embedding(generated_text)
 
             # Get user and global top tracks to embed
             embedded_user_tracks = {}
@@ -126,9 +126,10 @@ class PlaylistGenerator:
                 embedded_user_tracks[track['id']] = self.get_embedding(' '.join(song_info['tags']))
 
             embedded_global_tracks = {}
-            global_top_tracks = self.get_songs_from_playlist(sp, "1RDk6T6DZNnYvBaBZQ3eWh")  # TODO: function only returns 100 songs for some reason
+            global_top_tracks = self.get_songs_from_playlist(sp, "1RDk6T6DZNnYvBaBZQ3eWh", 300)
+
             if not global_top_tracks:
-                raise ValueError("No top tracks playlist found.")
+                raise ValueError("No global top tracks playlist found.")
             for track in global_top_tracks:
                 song_info = self.get_song_info(track['name'], track['artist'])  # TODO: get_song_info kinda slow
                 embedded_global_tracks[track['id']] = self.get_embedding(' '.join(song_info['tags']))  # TODO: Probably need to find a better way to embed the songs aside from using the 'tags'
@@ -140,7 +141,7 @@ class PlaylistGenerator:
             # Embed global top tracks into latent space to do (cosine) similarity search using user's prompt
             knn = NearestNeighbors(n_neighbors=50, metric="cosine")
             knn.fit(np.array(list(embedded_global_tracks.values())))
-            distances, indices = knn.kneighbors([embedded_mood])
+            distances, indices = knn.kneighbors([embedded_prompt])
             indices = [int(idx) for _, idx in sorted(zip(distances[0], indices[0]))]
             closest_global_songs = {list(embedded_global_tracks.items())[idx][0]:list(embedded_global_tracks.items())[idx][1] for idx in indices}
 
@@ -153,7 +154,7 @@ class PlaylistGenerator:
 
             # Create a Spotify playlist with the recommended songs
             playlist_url = self.create_playlist(sp, user_prompt, recommended_songs)  # TODO: Playlist is currently created and saved under user's actual account
-            new_playlist_tracks = self.get_songs_from_playlist(sp, playlist_url.split('/')[-1])
+            new_playlist_tracks = self.get_songs_from_playlist(sp, playlist_url.split('/')[-1], 100)
             playlist_name = 'test'  # TODO: maybe use some LLM to create name 
 
             return {"success":True, "playlist_url":playlist_url, "playlist_name":playlist_name, "playlist_tracks":new_playlist_tracks}

@@ -266,12 +266,12 @@ class StreamlitApp(APIManager):
         st.title("Mood-Based Playlist Generator")
         st.text("Tell us how you feel and we will help you find some fitting tunes!")
 
-        mood = st.text_input("Describe how you feel now", placeholder="e.g., Happy, Sad, Relaxed")
+        mood = st.text_input("Describe what type of playlist you would like me to offer...", placeholder="eg. I am feeling lethargic and lazy so I need some tunes to motivate me!")
         if st.button("Generate Playlist"):
             if not mood:
                 st.error("Sorry, I can't read your mind... yet. Try keying a prompt in!")
             else:
-                st.success(f"Generating a playlist based on you feeling... {mood}")
+                st.success(f"Generating a playlist to... {mood}")
                 
                 res = self.create_playlist(mood, st.session_state.username)
                 if res['success']:
@@ -302,7 +302,6 @@ class StreamlitApp(APIManager):
             st.error(f'Error retrieving playlist history: {data['message']}')
         else:
             for playlist in data['playlists']:
-                print(playlist)
                 with st.container():
                     
                     col1, col2 = st.columns([1, 3])  # Playlist Image and Prompt (Left and Right Layout)
